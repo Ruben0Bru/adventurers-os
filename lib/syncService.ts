@@ -40,3 +40,35 @@ export async function syncProgresoOffline() {
     // El sistema simplemente lo volverá a intentar en el próximo render o recarga.
   }
 }
+
+export async function prefetchData() {
+  try {
+    console.log('[Pre-Fetch] Conectando a Supabase...');
+    
+    // 1. Descargar catálogo de niños activos
+    const { data: ninosData, error: errorNinos } = await supabase
+      .from('nino')
+      .select('*')
+      .eq('activo', true);
+      
+    if (errorNinos) throw errorNinos;
+
+    // 2. Descargar actividades
+    const { data: actividadesData, error: errorAct } = await supabase
+      .from('unidad_actividad')
+      .select('*');
+
+    if (errorAct) throw errorAct;
+
+    // 3. Inyectar de golpe en la bóveda local (Dexie)
+    // bulkPut actualiza si el ID ya existe, o inserta si es nuevo
+    if (ninosData) await db.ninos.bulkPut(ninosData);
+    if (actividadesData) await db.unidad_actividad.bulkPut(actividadesData);
+
+    console.log(`[Pre-Fetch] Éxito. ${ninosData?.length} niños listos para offline.`);
+    return true;
+  } catch (error) {
+    console.error('[Pre-Fetch Error] Fallo al descargar datos:', error);
+    return false;
+  }
+}
