@@ -1,15 +1,14 @@
 @import "tailwindcss";
 
+/* 1. Valores de Respaldo Global (Fallback) */
+/* Si la app no detecta ninguna clase, usará el Celeste de Corderitos por defecto */
 :root {
+  --color-primario: #0ea5e9; 
+  --color-fondo: #f0f9ff;
+  
+  /* Mantengo tus variables originales para que no se rompa nada en el layout */
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -19,6 +18,21 @@
   }
 }
 
+/* 2. El Motor de Configuración de Tailwind v4 */
+/* Aquí le decimos a Tailwind que genere clases utilitarias basadas en nuestras variables */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  
+  /* Nuevas utilidades dinámicas para el Multi-Tenant */
+  /* Esto generará automáticamente: bg-clase-primario, text-clase-primario, etc. */
+  --color-clase-primario: var(--color-primario);
+  --color-clase-fondo: var(--color-fondo);
+}
+
+/* 3. Estilos Base */
 body {
   background: var(--background);
   color: var(--foreground);

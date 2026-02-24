@@ -57,8 +57,10 @@ export default function PreFlightCheck({ onStartPipeline }: { onStartPipeline: (
   return (
     <div className="flex flex-col h-full flex-grow">
       <div className="mb-6">
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Pase de Lista</h2>
-        <p className="text-slate-500 font-medium text-sm">Pre-Flight Check - 10:00 AM</p>
+<div className="mb-6">
+  <h2 className="text-2xl font-black text-slate-900 tracking-tight">Recepción de Corderitos</h2>
+  <p className="text-slate-500 font-medium text-sm">Pase de lista y revisión de materiales</p>
+</div>
       </div>
 
       <div className="flex-grow flex flex-col gap-3 overflow-y-auto pb-4">
@@ -72,18 +74,19 @@ export default function PreFlightCheck({ onStartPipeline }: { onStartPipeline: (
               <div className="flex items-center justify-between mb-3">
                 <h3 className={`font-bold text-lg ${nino.presente ? 'text-slate-800' : 'text-slate-400 line-through'}`}>{nino.nombre}</h3>
                 
-                <button onClick={() => handleToggle(nino.id_nino, 'presente')} 
-                  className={`
-                    relative px-5 py-3 rounded-xl font-bold text-sm uppercase tracking-wide
-                    transition-all duration-200 ease-in-out transform
-                    active:scale-95 active:shadow-inner select-none
-                    ${nino.presente 
-                      ? 'bg-emerald-500 text-white shadow-[0_4px_0_rgb(4,120,87)] hover:bg-emerald-400 active:translate-y-1 active:shadow-[0_0px_0_rgb(4,120,87)]' 
-                      : 'bg-white text-slate-500 border-2 border-slate-200 shadow-sm hover:bg-slate-50'
-                    }
-                  `}>
-                  {nino.presente ? '✓ Presente' : 'Ausente'}
-                </button>
+                <button 
+  onClick={() => handleToggle(nino.id_nino, 'presente')} 
+  className={`
+    relative px-5 py-3 rounded-xl font-bold text-sm uppercase tracking-wide
+    transition-all duration-200 ease-in-out transform select-none
+    ${nino.presente 
+      ? 'bg-sky-500 text-white shadow-[0_4px_0_rgb(2,132,199)] hover:bg-sky-400 active:translate-y-1 active:shadow-none' 
+      : 'bg-white text-slate-500 border-2 border-slate-200 shadow-sm hover:bg-slate-50 active:scale-95'
+    }
+  `}
+>
+  {nino.presente ? '✓ Presente' : 'Ausente'}
+</button>
               </div>
 
               <div className={`flex gap-3 mt-3 transition-all duration-300 origin-top ${nino.presente ? 'scale-y-100 opacity-100 h-auto' : 'scale-y-0 opacity-0 h-0 overflow-hidden pointer-events-none'}`}>
@@ -123,11 +126,14 @@ export default function PreFlightCheck({ onStartPipeline }: { onStartPipeline: (
         )}
       </div>
 
-      <div className="mt-auto pt-4 bg-slate-50">
-        {ausentesCount > 0 && ninosUI.length > 0 && <p className="text-xs text-rose-600 text-center mb-2 font-medium">⚠️ {ausentesCount} niño(s) ausente(s). Se encolará el Recovery Protocol.</p>}
-        <button onClick={() => onStartPipeline(ninosUI)} disabled={ninosUI.length === 0} className="w-full bg-emerald-600 disabled:bg-slate-300 disabled:transform-none active:bg-emerald-700 text-white font-bold text-lg py-5 rounded-2xl shadow-lg transition-transform transform active:scale-[0.98] flex justify-center items-center gap-2">
-          Arrancar Clase (Commit)
-        </button>
+      <div className="mt-auto pt-4 bg-transparent">
+        <div className="mt-auto pt-4 bg-transparent">
+  <span>{ausentesCount > 0 && ninosUI.length > 0 && <p className="text-xs text-rose-500 text-center mb-2 font-medium">⚠️ {ausentesCount} niño(s) ausente(s). Se activará el plan de apoyo.</p>}
+  </span>
+  <button onClick={() => onStartPipeline(ninosUI)} disabled={ninosUI.length === 0} className="w-full bg-sky-600 disabled:bg-slate-300 disabled:shadow-none disabled:translate-y-0 text-white font-bold text-lg py-5 rounded-2xl shadow-[0_6px_0_rgb(3,105,161)] hover:bg-sky-500 active:translate-y-1.5 active:shadow-none transition-all flex justify-center items-center gap-2">
+    Comenzar Clase 🚀
+  </button>
+</div>
       </div>
     </div>
   );

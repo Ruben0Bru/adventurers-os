@@ -1,7 +1,7 @@
-// components/ExecutionHUD.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
+import {ArrowRight} from 'lucide-react';
 
 // Tipado estricto para la máquina de estados
 type PipelineState = {
@@ -113,12 +113,12 @@ export default function ExecutionHUD({ onFinish }: { onFinish: () => void }) {
 
       {/* 4. Acción Inferior (Ley de Fitts) */}
       <button 
-        onClick={handleNextState}
-        className="mt-auto w-full bg-slate-900 active:bg-slate-800 text-white font-bold text-lg py-5 rounded-2xl shadow-lg transition-transform transform active:scale-[0.98] flex justify-center items-center gap-2"
-      >
-        {isLastState ? 'Finalizar Sesión' : 'Siguiente Estado'}
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
-      </button>
+  onClick={handleNextState}
+  className="mt-auto w-full bg-sky-600 text-white font-bold text-lg py-5 rounded-2xl shadow-[0_6px_0_rgb(3,105,161)] hover:bg-sky-500 active:translate-y-1.5 active:shadow-none transition-all flex justify-center items-center gap-2"
+>
+  {isLastState ? 'Terminar Actividades ✓' : 'Siguiente Actividad'}
+  <ArrowRight className="w-5 h-5"/>
+</button>
 
     </div>
   );

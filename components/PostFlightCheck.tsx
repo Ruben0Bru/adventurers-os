@@ -40,9 +40,9 @@ export default function PostFlightCheck({
   return (
     <div className="flex flex-col h-full flex-grow">
       <div className="mb-6">
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Post-Flight</h2>
-        <p className="text-slate-500 font-medium text-sm">Validación y Acciones Pendientes</p>
-      </div>
+  <h2 className="text-2xl font-black text-slate-900 tracking-tight">Cierre de Clase</h2>
+  <p className="text-slate-500 font-medium text-sm">Revisión de manualidades y tareas en casa</p>
+</div>
 
       <div className="flex-grow flex flex-col gap-6 overflow-y-auto pb-4">
         
@@ -77,8 +77,8 @@ export default function PostFlightCheck({
         {ausentes.length > 0 && (
           <div>
             <h3 className="text-sm font-bold text-rose-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-              <span>⚠️</span> Recovery Protocol
-            </h3>
+  <span>⚠️</span> Plan de Apoyo en Casa
+</h3>
             <div className="flex flex-col gap-3">
               {ausentes.map((nino) => (
                 <div key={nino.id_nino} className="p-4 rounded-2xl border border-rose-200 bg-rose-50 flex items-center justify-between">
@@ -98,9 +98,11 @@ export default function PostFlightCheck({
       </div>
 
       <div className="mt-auto pt-4 bg-slate-50">
-        <button onClick={onSyncAndClose} className="w-full bg-slate-900 active:bg-slate-800 text-white font-bold text-lg py-5 rounded-2xl shadow-lg transition-transform transform active:scale-[0.98] flex justify-center items-center gap-2">
-          Finalizar y Guardar
-        </button>
+        <div className="mt-auto pt-4 bg-slate-50">
+  <button onClick={onSyncAndClose} className="w-full bg-sky-600 text-white font-bold text-lg py-5 rounded-2xl shadow-[0_6px_0_rgb(3,105,161)] hover:bg-sky-500 active:translate-y-1.5 active:shadow-none transition-all flex justify-center items-center gap-2">
+    Guardar y Cerrar Sesión
+  </button>
+</div>
       </div>
     </div>
   );
