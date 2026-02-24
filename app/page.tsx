@@ -8,8 +8,9 @@ import ExecutionHUD from '@/components/ExecutionHUD';
 import PostFlightCheck from '@/components/PostFlightCheck';
 import { syncProgresoOffline, prefetchData } from '@/lib/syncService';
 import Navbar from '@/components/NavBar';
+import CalendarPlanner from '@/components/CalendarPlanner';
 
-type ViewState = 'PREFLIGHT' | 'EXECUTION' | 'POSTFLIGHT' | 'DONE';
+type ViewState = 'PREFLIGHT' | 'EXECUTION' | 'POSTFLIGHT' | 'DONE' | 'PLANNER';
 
 // ELIMINAMOS EL MOCK: Ahora usamos un Fallback de Seguridad estricto para cuando la DB esté vacía
 const FALLBACK_THEME = {
@@ -96,15 +97,28 @@ export default function DashboardOrchestrator() {
       <div className="flex-col h-full w-full p-4 flex-grow flex">
         {currentView === 'PREFLIGHT' && (
           <>
-            {/* NOTA: Recuerda reemplazar el UUID quemado aquí cuando pruebes con otras clases */}
-            <button 
-              onClick={() => prefetchData('359ede06-9c4e-4c89-aaa3-7d81ee99271a')} 
-              className="mb-4 text-xs text-slate-500 hover:text-slate-800 transition-colors text-center w-full"
-            >
-              ⬇️ Fetch Datos de Supabase (Sábado)
-            </button>
+            <div className="flex gap-2 mb-4">
+              <button 
+                onClick={() => prefetchData('359ede06-9c4e-4c89-aaa3-7d81ee99271a')} 
+                className="flex-1 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 bg-slate-100 rounded-lg transition-colors text-center"
+              >
+                ⬇️ Fetch Datos (Sábado)
+              </button>
+              <button 
+                onClick={() => setCurrentView('PLANNER')} 
+                className="flex-1 py-2 text-xs font-bold text-white rounded-lg transition-colors text-center shadow-sm"
+                style={{ backgroundColor: 'var(--color-primario)' }}
+              >
+                📅 Planificador Anual
+              </button>
+            </div>
             <PreFlightCheck nombreClase={activeTheme.nombre} onStartPipeline={handleStartPipeline} />
           </>
+        )}
+
+        {/* AQUÍ VA EL CALENDARIO, DENTRO DEL CONTENEDOR */}
+        {currentView === 'PLANNER' && (
+          <CalendarPlanner idClase={activeTheme.id_clase} onBack={() => setCurrentView('PREFLIGHT')}/>
         )}
         
         {currentView === 'EXECUTION' && <ExecutionHUD onFinish={handleFinishPipeline} />}
