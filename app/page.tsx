@@ -32,47 +32,72 @@ export default function DashboardOrchestrator() {
   const [currentView, setCurrentView] = useState<ViewState>('PREFLIGHT');
   const [presentes, setPresentes] = useState<any[]>([]);
   const [ausentes, setAusentes] = useState<any[]>([]);
+  const [isOnline, setIsOnline] = useState(true);
+
+  // DETECTOR DE RED GLOBAL
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsOnline(navigator.onLine);
+      const handleOnline = () => setIsOnline(true);
+      const handleOffline = () => setIsOnline(false);
+
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
+    }
+  }, []);
   
-  // 1. MOTOR DE IDENTIDAD (Auth Guard & Offline Fallback)
+ // 1. MOTOR DE IDENTIDAD (Auth Guard & Offline Fallback Definitivo)
   useEffect(() => {
     const hidratarSesion = async () => {
       try {
+        // A. Obtener sesión de la caché del navegador (Rápido, no requiere red)
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
-          // No hay JWT, expulsar al Login
           router.push('/login');
           return;
         }
 
-        if (navigator.onLine) {
-          // Modo Online: Consultar la base de datos maestra
-          const { data: perfil, error } = await supabase
-            .from('consejero')
-            .select('id_clase')
-            .eq('id_usuario', session.user.id)
-            .single();
+        // B. PRE-CARGAR LA CACHÉ L1 SIEMPRE: Nuestra red de seguridad
+        const offlineId = localStorage.getItem('offline_id_clase');
 
-          if (error) throw error;
-          
-          if (perfil) {
-            setConsejeroIdClase(perfil.id_clase);
-            // Guardar en Caché L1 (Offline Badge)
-            localStorage.setItem('offline_id_clase', perfil.id_clase);
+        try {
+          // C. Sincronización con Timeout Competitivo (Máximo 4 segundos)
+          if (navigator.onLine) {
+            const fetchPerfil = supabase.from('consejero').select('id_clase').eq('id_usuario', session.user.id).single();
+            const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 4000));
+            
+            // Compiten las dos promesas: La red vs El Reloj
+            const { data: perfil, error } = await Promise.race([fetchPerfil, timeout]) as any;
+
+            if (error) throw error; 
+            
+            if (perfil) {
+              setConsejeroIdClase(perfil.id_clase);
+              localStorage.setItem('offline_id_clase', perfil.id_clase);
+              return; // Éxito online, salimos.
+            }
           }
-        } else {
-          // Modo Offline: Rescate desde Caché L1
-          const offlineId = localStorage.getItem('offline_id_clase');
-          if (offlineId) {
-            setConsejeroIdClase(offlineId);
-          } else {
-            // Falla catastrófica: Offline sin caché previo
-            alert('Necesitas conexión a internet para tu primer inicio de sesión.');
-            router.push('/login');
-          }
+        } catch (networkError) {
+          console.warn('[Identidad] Red muy lenta o caída. Abortando y activando Offline.');
         }
+
+        // D. EL CORTAFUEGOS OFFLINE: Si la nube falló o estamos 100% desconectados
+        if (offlineId) {
+          console.log('[Identidad] Usando placa de identidad local (Dexie L1).');
+          setConsejeroIdClase(offlineId);
+        } else {
+          alert('Falla crítica: Sin red y sin caché local. Inicia sesión con internet la primera vez.');
+          router.push('/login');
+        }
+
       } catch (error) {
-        console.error("Error de hidratación de identidad:", error);
+        console.error("Error catastrófico de hidratación:", error);
       } finally {
         setIsAuthLoading(false);
       }
@@ -101,19 +126,22 @@ export default function DashboardOrchestrator() {
     setCurrentView('DONE'); 
   };
   const handleLogout = async () => {
-    // 1. Destruir sesión en el servidor
-    await supabase.auth.signOut();
-    // 2. Destruir placa de identidad local
-    localStorage.removeItem('offline_id_clase');
-    // 3. Purgar la bóveda L2 (Dexie) para no mezclar datos de clases
-    await Promise.all([
-      db.club_clase.clear(),
-      db.ninos.clear(),
-      db.plan_ejecucion.clear(),
-      db.registro_progreso.clear()
-    ]);
-    // 4. Expulsar al Login
-    router.push('/login');
+    try {
+      // 1. Intenta destruir sesión en el servidor (Fallará si no hay internet)
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn('[Logout] Servidor inalcanzable. Forzando limpieza local.');
+    } finally {
+      // 2. ESTO SE EJECUTA SÍ O SÍ
+      localStorage.removeItem('offline_id_clase');
+      await Promise.all([
+        db.club_clase.clear(),
+        db.ninos.clear(),
+        db.plan_ejecucion.clear(),
+        db.registro_progreso.clear()
+      ]);
+      router.push('/login');
+    }
   };
 
   // Pantallas de Carga de Seguridad
@@ -136,16 +164,22 @@ export default function DashboardOrchestrator() {
         backgroundColor: 'var(--color-fondo)' 
       } as React.CSSProperties}
     >
-      <Navbar nombreClase={activeTheme.nombre} />
+      <Navbar nombreClase={activeTheme.nombre} isOnline={isOnline}/>
       
       {/* Botón de Logout Táctico */}
       <div className="px-4 pt-2 flex justify-end">
         <button 
           onClick={handleLogout}
-          className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1"
+          disabled={!isOnline}
+          className={`text-xs font-bold flex items-center gap-1 transition-colors ${
+            isOnline 
+              ? 'text-slate-400 hover:text-rose-500 cursor-pointer' 
+              : 'text-slate-300 opacity-50 cursor-not-allowed'
+          }`}
+          title={!isOnline ? "Necesitas conexión para cerrar sesión de forma segura" : "Cerrar sesión"}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-          Cerrar Sesión
+          {isOnline ? 'Cerrar Sesión' : 'Logout Deshabilitado (Offline)'}
         </button>
       </div>
 
@@ -155,15 +189,20 @@ export default function DashboardOrchestrator() {
           <>
             <div className="flex gap-2 mb-4">
               <button 
-                // AHORA USA EL ID REAL DEL CONSEJERO, NO EL QUEMADO
-                onClick={() => prefetchData(consejeroIdClase)} 
-                className="flex-1 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 bg-slate-100 rounded-lg transition-colors text-center shadow-sm active:scale-95"
+                onClick={() => isOnline ? prefetchData(consejeroIdClase) : alert("Necesitas conexión a internet para descargar los datos de tu clase.")} 
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all text-center shadow-sm ${
+                  isOnline 
+                    ? 'text-slate-600 hover:text-slate-900 bg-slate-100 active:scale-95 hover:bg-slate-200' 
+                    : 'text-slate-400 bg-slate-50 opacity-60 cursor-not-allowed'
+                }`}
               >
-                ⬇️ Fetch Datos (Sábado)
+                {isOnline ? '⬇️ Fetch Datos (Sábado)' : '⛔ Fetch Deshabilitado'}
               </button>
               <button 
-                onClick={() => setCurrentView('PLANNER')} 
-                className="flex-1 py-2 text-xs font-bold text-white rounded-lg transition-colors text-center shadow-sm active:scale-95"
+                onClick={() => isOnline ? setCurrentView('PLANNER') : alert("La planeación requiere conexión a internet.")} 
+                className={`flex-1 py-2 text-xs font-bold text-white rounded-lg transition-all text-center shadow-sm ${
+                  isOnline ? 'active:scale-95 hover:brightness-110' : 'opacity-60 cursor-not-allowed'
+                }`}
                 style={{ backgroundColor: 'var(--color-primario)' }}
               >
                 📅 Planificador Anual
