@@ -1,6 +1,6 @@
 // lib/syncService.ts
 import { db } from './db';
-import { supabase } from './supabaseClient'; // Asumiendo que ya tienes instanciado tu cliente de Supabase
+import { supabase } from './supabaseClient'; 
 
 export async function syncProgresoOffline() {
   try {
@@ -40,35 +40,47 @@ export async function syncProgresoOffline() {
     // El sistema simplemente lo volverá a intentar en el próximo render o recarga.
   }
 }
-
-export async function prefetchData() {
+export async function prefetchData(id_clase: string) {
   try {
-    console.log('[Pre-Fetch] Conectando a Supabase...');
+    console.log(`[Pre-Fetch V2] Aislamiento de red para clase: ${id_clase}`);
     
-    // 1. Descargar catálogo de niños activos
+    // 1. Descargar la identidad de la clase (Colores y Configuración)
+    const { data: claseData, error: errorClase } = await supabase
+      .from('club_clase')
+      .select('*')
+      .eq('id_clase', id_clase)
+      .single(); // Esperamos un solo objeto, no un arreglo
+      
+    if (errorClase) throw errorClase;
+
+    // 2. Descargar niños ESTRICTAMENTE de esta clase
     const { data: ninosData, error: errorNinos } = await supabase
       .from('nino')
       .select('*')
-      .eq('activo', true);
+      .eq('activo', true)
+      .eq('id_clase', id_clase);
       
     if (errorNinos) throw errorNinos;
 
-    // 2. Descargar actividades
+    // 3. Descargar currículo ESTRICTAMENTE de esta clase
     const { data: actividadesData, error: errorAct } = await supabase
       .from('unidad_actividad')
-      .select('*');
+      .select('*')
+      .eq('id_clase', id_clase);
 
     if (errorAct) throw errorAct;
 
-    // 3. Inyectar de golpe en la bóveda local (Dexie)
-    // bulkPut actualiza si el ID ya existe, o inserta si es nuevo
+    // 4. Inyección en Bóveda Local (Transacción Masiva)
+    // Dexie reemplazará los datos viejos si el ID existe.
+    if (claseData) await db.club_clase.put(claseData);
     if (ninosData) await db.ninos.bulkPut(ninosData);
     if (actividadesData) await db.unidad_actividad.bulkPut(actividadesData);
 
-    console.log(`[Pre-Fetch] Éxito. ${ninosData?.length} niños listos para offline.`);
+    console.log(`[Pre-Fetch V2] Éxito. Descargados ${ninosData?.length || 0} niños de ${claseData.nombre}.`);
     return true;
+
   } catch (error) {
-    console.error('[Pre-Fetch Error] Fallo al descargar datos:', error);
+    console.error('[Pre-Fetch V2 Error] Violación de tubería de datos:', error);
     return false;
   }
 }

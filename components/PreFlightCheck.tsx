@@ -1,3 +1,4 @@
+// components/PreFlightCheck.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,20 +14,15 @@ type NinoRegistroState = {
   cultoFirmado: boolean;
 };
 
-export default function PreFlightCheck({ onStartPipeline }: { onStartPipeline: (datos: NinoRegistroState[]) => void }) {
-  // Conexión real a la BD local: Trae todos los niños de Dexie
+export default function PreFlightCheck({ nombreClase, onStartPipeline }: { nombreClase: string, onStartPipeline: (datos: NinoRegistroState[]) => void }) {
   const ninosDB = useLiveQuery(() => db.ninos.toArray());
-  
-  // Estado para manejar los toggles en la pantalla antes de hacer el commit
   const [ninosUI, setNinosUI] = useState<NinoRegistroState[]>([]);
 
-  // Cuando la BD local cargue los datos, inicializamos el estado de la UI
-  // Todos inician como Ausentes (false) por defecto.
   useEffect(() => {
     if (ninosDB) {
       setNinosUI(ninosDB.map(n => ({
         id_nino: n.id_nino,
-        nombre: n.nombre_completo.split(' ')[0], // Mostramos solo el primer nombre para no saturar UI
+        nombre: n.nombre_completo.split(' ')[0],
         telefono_contacto: n.telefono_contacto,
         presente: false,
         trajoMateriales: false,
@@ -51,16 +47,13 @@ export default function PreFlightCheck({ onStartPipeline }: { onStartPipeline: (
 
   const ausentesCount = ninosUI.filter(n => !n.presente).length;
 
-  // Pantalla de carga mientras lee Dexie
   if (!ninosDB) return <div className="p-8 text-center text-slate-500">Cargando base de datos local...</div>;
 
   return (
     <div className="flex flex-col h-full flex-grow">
       <div className="mb-6">
-<div className="mb-6">
-  <h2 className="text-2xl font-black text-slate-900 tracking-tight">Recepción de Corderitos</h2>
-  <p className="text-slate-500 font-medium text-sm">Pase de lista y revisión de materiales</p>
-</div>
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight transition-colors">Recepción de {nombreClase}</h2>
+        <p className="text-slate-500 font-medium text-sm">Pase de lista y revisión de materiales</p>
       </div>
 
       <div className="flex-grow flex flex-col gap-3 overflow-y-auto pb-4">
@@ -74,66 +67,72 @@ export default function PreFlightCheck({ onStartPipeline }: { onStartPipeline: (
               <div className="flex items-center justify-between mb-3">
                 <h3 className={`font-bold text-lg ${nino.presente ? 'text-slate-800' : 'text-slate-400 line-through'}`}>{nino.nombre}</h3>
                 
+                {/* CORRECCIÓN: Inyectamos backgroundColor directamente en el estilo en línea */}
                 <button 
-  onClick={() => handleToggle(nino.id_nino, 'presente')} 
-  className={`
-    relative px-5 py-3 rounded-xl font-bold text-sm uppercase tracking-wide
-    transition-all duration-200 ease-in-out transform select-none
-    ${nino.presente 
-      ? 'bg-sky-500 text-white shadow-[0_4px_0_rgb(2,132,199)] hover:bg-sky-400 active:translate-y-1 active:shadow-none' 
-      : 'bg-white text-slate-500 border-2 border-slate-200 shadow-sm hover:bg-slate-50 active:scale-95'
-    }
-  `}
->
-  {nino.presente ? '✓ Presente' : 'Ausente'}
-</button>
+                  onClick={() => handleToggle(nino.id_nino, 'presente')} 
+                  className={`
+                    relative px-5 py-3 rounded-xl font-bold text-sm uppercase tracking-wide
+                    transition-all duration-200 ease-in-out transform select-none
+                    ${nino.presente 
+                      ? 'text-white hover:brightness-110 active:translate-y-1 active:shadow-none' // Quitamos bg-clase-primario de aquí
+                      : 'bg-white text-slate-500 border-2 border-slate-200 shadow-sm hover:bg-slate-50 active:scale-95'
+                    }
+                  `}
+                  style={nino.presente ? { 
+                    backgroundColor: 'var(--color-primario)', // <-- AQUÍ ESTÁ LA MAGIA
+                    boxShadow: '0 4px 0 color-mix(in srgb, var(--color-primario) 75%, black)' 
+                  } : {}}
+                >
+                  {nino.presente ? '✓ Presente' : 'Ausente'}
+                </button>
               </div>
 
               <div className={`flex gap-3 mt-3 transition-all duration-300 origin-top ${nino.presente ? 'scale-y-100 opacity-100 h-auto' : 'scale-y-0 opacity-0 h-0 overflow-hidden pointer-events-none'}`}>
-  
-              {/* Botón: Materiales (Física Slate/Oscuro) */}
-              <button
-                onClick={() => handleToggle(nino.id_nino, 'trajoMateriales')}
-                className={`
-                  relative flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-wider
-                  transition-all duration-200 ease-in-out select-none active:scale-95
-                  ${nino.trajoMateriales 
-                    ? 'bg-slate-700 text-white border-2 border-slate-700 shadow-[0_4px_0_rgb(51,65,85)] active:translate-y-1 active:shadow-none' 
-                    : 'bg-white text-slate-500 border-2 border-slate-200 shadow-sm hover:bg-slate-50'
-                  }
-                `}
-              >
-                {nino.trajoMateriales ? '📦 Materiales ✓' : '📦 Faltó material'}
-              </button>
+                <button
+                  onClick={() => handleToggle(nino.id_nino, 'trajoMateriales')}
+                  className={`relative flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 ease-in-out select-none active:scale-95 ${nino.trajoMateriales ? 'text-white active:translate-y-1 active:shadow-none' : 'bg-white text-slate-500 border-2 border-slate-200 shadow-sm hover:bg-slate-50'}`}
+                  style={nino.trajoMateriales ? { 
+                    backgroundColor: 'var(--color-secundario)', 
+                    boxShadow: '0 4px 0 color-mix(in srgb, var(--color-secundario) 75%, black)' 
+                  } : {}}
+                >
+                  {nino.trajoMateriales ? '📦 Materiales ✓' : '📦 Faltó material'}
+                </button>
 
-              {/* Botón: Culto (Física Púrpura/Continuo) */}
-              <button
-                onClick={() => handleToggle(nino.id_nino, 'cultoFirmado')}
-                className={`
-                  relative flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-wider
-                  transition-all duration-200 ease-in-out select-none active:scale-95
-                  ${nino.cultoFirmado 
-                    ? 'bg-purple-600 text-white border-2 border-purple-600 shadow-[0_4px_0_rgb(147,51,234)] active:translate-y-1 active:shadow-none' 
-                    : 'bg-white text-slate-500 border-2 border-slate-200 shadow-sm hover:bg-slate-50'
-                  }
-                `}
-              >
-                {nino.cultoFirmado ? '📖 Culto ✓' : '📖 Sin Culto'}
-              </button>
-            </div>
+                <button
+                  onClick={() => handleToggle(nino.id_nino, 'cultoFirmado')}
+                  className={`relative flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 ease-in-out select-none active:scale-95 ${nino.cultoFirmado ? 'text-white active:translate-y-1 active:shadow-none' : 'bg-white text-slate-500 border-2 border-slate-200 shadow-sm hover:bg-slate-50'}`}
+                  style={nino.cultoFirmado ? { 
+                    backgroundColor: 'var(--color-acento)', 
+                    boxShadow: '0 4px 0 color-mix(in srgb, var(--color-acento) 75%, black)' 
+                  } : {}}
+                >
+                  {nino.cultoFirmado ? '📖 Culto ✓' : '📖 Sin Culto'}
+                </button>
+              </div>
             </div>
           ))
         )}
       </div>
 
       <div className="mt-auto pt-4 bg-transparent">
-        <div className="mt-auto pt-4 bg-transparent">
-  <span>{ausentesCount > 0 && ninosUI.length > 0 && <p className="text-xs text-rose-500 text-center mb-2 font-medium">⚠️ {ausentesCount} niño(s) ausente(s). Se activará el plan de apoyo.</p>}
-  </span>
-  <button onClick={() => onStartPipeline(ninosUI)} disabled={ninosUI.length === 0} className="w-full bg-sky-600 disabled:bg-slate-300 disabled:shadow-none disabled:translate-y-0 text-white font-bold text-lg py-5 rounded-2xl shadow-[0_6px_0_rgb(3,105,161)] hover:bg-sky-500 active:translate-y-1.5 active:shadow-none transition-all flex justify-center items-center gap-2">
-    Comenzar Clase 🚀
-  </button>
-</div>
+        {ausentesCount > 0 && ninosUI.length > 0 && (
+          <p className="text-xs text-rose-500 text-center mb-2 font-medium">
+            ⚠️ {ausentesCount} niño(s) ausente(s). Se activará el plan de apoyo.
+          </p>
+        )}
+        {/* CORRECCIÓN: Inyectamos backgroundColor también en el botón final */}
+        <button 
+          onClick={() => onStartPipeline(ninosUI)} 
+          disabled={ninosUI.length === 0} 
+          className="w-full text-white font-bold text-lg py-5 rounded-2xl transition-all flex justify-center items-center gap-2 hover:brightness-110 active:translate-y-1.5 active:shadow-none disabled:bg-slate-300 disabled:shadow-none disabled:translate-y-0"
+          style={{ 
+            backgroundColor: ninosUI.length > 0 ? 'var(--color-primario)' : undefined,
+            boxShadow: ninosUI.length > 0 ? '0 6px 0 color-mix(in srgb, var(--color-primario) 75%, black)' : 'none' 
+          }}
+        >
+          Comenzar Clase 🚀
+        </button>
       </div>
     </div>
   );

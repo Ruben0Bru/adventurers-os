@@ -9,6 +9,15 @@ export interface NinoLocal {
   activo: boolean;
   // ... resto de campos de Supabase
 }
+export interface ClubClaseLocal {
+  id_clase: string;
+  nombre: string;
+  edad_objetivo: number;
+  color_primario_hex: string;
+  color_secundario_hex: string;
+  color_acento_hex: string;
+  color_fondo_hex: string;
+}
 
 export interface RegistroProgresoLocal {
   id_registro: string;
@@ -21,6 +30,7 @@ export interface RegistroProgresoLocal {
 }
 
 export class CorderitosDB extends Dexie {
+  club_clase!: Table<ClubClaseLocal, string>; // NUEVA TABLA
   ninos!: Table<NinoLocal, string>;
   unidad_actividad!: Table<any, string>;
   registro_progreso!: Table<RegistroProgresoLocal, string>;
@@ -28,18 +38,11 @@ export class CorderitosDB extends Dexie {
   constructor() {
     super('CorderitosOS_DB');
     
-    // Declaración de Esquema Local (Solo PK e Índices de Búsqueda)
-    this.version(1).stores({
-      // PK: id_nino. Índice secundario: activo (para filtrar rápido a los retirados)
-      ninos: 'id_nino, activo', 
-      
-      // PK: id_actividad. 
-      unidad_actividad: 'id_actividad, eje_curricular',
-      
-      // La tabla crítica. 
-      // PK: id_registro. Índices: sync_status (para el worker asíncrono).
-      // El índice compuesto [id_nino+fecha_ejecucion] es un "lock" para que 
-      // tu dedo no guarde dos asistencias del mismo niño el mismo domingo por error.
+    // VERSIÓN 2: Migración Multi-Tenant
+    this.version(2).stores({
+      club_clase: 'id_clase', // Solo necesitamos buscar por el ID
+      ninos: 'id_nino, id_clase, activo', // Añadimos id_clase al índice
+      unidad_actividad: 'id_actividad, id_clase, eje_curricular', // Añadimos id_clase al índice
       registro_progreso: 'id_registro, id_nino, fecha_ejecucion, sync_status, [id_nino+fecha_ejecucion]'
     });
   }
