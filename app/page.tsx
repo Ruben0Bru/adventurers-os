@@ -1,8 +1,11 @@
+// app/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
+import { supabase } from '@/lib/supabaseClient';
 import PreFlightCheck from '@/components/PreFlightCheck';
 import ExecutionHUD from '@/components/ExecutionHUD';
 import PostFlightCheck from '@/components/PostFlightCheck';
@@ -12,36 +15,78 @@ import CalendarPlanner from '@/components/CalendarPlanner';
 
 type ViewState = 'PREFLIGHT' | 'EXECUTION' | 'POSTFLIGHT' | 'DONE' | 'PLANNER';
 
-// ELIMINAMOS EL MOCK: Ahora usamos un Fallback de Seguridad estricto para cuando la DB esté vacía
 const FALLBACK_THEME = {
-  id_clase: '00000000-0000-0000-0000-000000000000',
-  nombre: 'Setup Inicial',
-  color_primario_hex: '#94a3b8',   // Slate 400
-  color_secundario_hex: '#cbd5e1', // Slate 300
-  color_acento_hex: '#e2e8f0',     // Slate 200
-  color_fondo_hex: '#f8fafc'       // Slate 50
+  id_clase: '',
+  nombre: 'Cargando Identidad...',
+  color_primario_hex: '#94a3b8',
+  color_secundario_hex: '#cbd5e1',
+  color_acento_hex: '#e2e8f0',
+  color_fondo_hex: '#f8fafc'
 };
 
 export default function DashboardOrchestrator() {
+  const router = useRouter();
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [consejeroIdClase, setConsejeroIdClase] = useState<string>('');
+  
   const [currentView, setCurrentView] = useState<ViewState>('PREFLIGHT');
   const [presentes, setPresentes] = useState<any[]>([]);
   const [ausentes, setAusentes] = useState<any[]>([]);
   
-  // 1. LECTURA REACTIVA DE LA BASE DE DATOS LOCAL
-  const clasesDB = useLiveQuery(() => db.club_clase.toArray());
-  const [activeThemeId, setActiveThemeId] = useState<string>('');
-
-  // 2. SELECCIÓN DINÁMICA DE LA CLASE
-  // Si no hay selección, toma la primera de la DB. Si la DB está vacía, usa el Fallback.
-  const activeTheme = clasesDB?.find(c => c.id_clase === activeThemeId) 
-    || (clasesDB && clasesDB.length > 0 ? clasesDB[0] : FALLBACK_THEME);
-
-  // Auto-seleccionar la primera clase cuando Dexie termine de cargar
+  // 1. MOTOR DE IDENTIDAD (Auth Guard & Offline Fallback)
   useEffect(() => {
-    if (clasesDB && clasesDB.length > 0 && !activeThemeId) {
-      setActiveThemeId(clasesDB[0].id_clase);
-    }
-  }, [clasesDB, activeThemeId]);
+    const hidratarSesion = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          // No hay JWT, expulsar al Login
+          router.push('/login');
+          return;
+        }
+
+        if (navigator.onLine) {
+          // Modo Online: Consultar la base de datos maestra
+          const { data: perfil, error } = await supabase
+            .from('consejero')
+            .select('id_clase')
+            .eq('id_usuario', session.user.id)
+            .single();
+
+          if (error) throw error;
+          
+          if (perfil) {
+            setConsejeroIdClase(perfil.id_clase);
+            // Guardar en Caché L1 (Offline Badge)
+            localStorage.setItem('offline_id_clase', perfil.id_clase);
+          }
+        } else {
+          // Modo Offline: Rescate desde Caché L1
+          const offlineId = localStorage.getItem('offline_id_clase');
+          if (offlineId) {
+            setConsejeroIdClase(offlineId);
+          } else {
+            // Falla catastrófica: Offline sin caché previo
+            alert('Necesitas conexión a internet para tu primer inicio de sesión.');
+            router.push('/login');
+          }
+        }
+      } catch (error) {
+        console.error("Error de hidratación de identidad:", error);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+
+    hidratarSesion();
+  }, [router]);
+
+  // 2. LECTURA REACTIVA DE LA BASE DE DATOS LOCAL (DEXIE)
+  const clasesDB = useLiveQuery(() => db.club_clase.toArray());
+
+  // 3. ENLACE DE CONTEXTO VISUAL
+  // Buscamos el tema de la clase basándonos ESTRICTAMENTE en la identidad del consejero
+  const activeTheme = clasesDB?.find(c => c.id_clase === consejeroIdClase) || FALLBACK_THEME;
 
   const handleStartPipeline = (datosPreFlight: any[]) => {
     setPresentes(datosPreFlight.filter(n => n.presente));
@@ -55,9 +100,28 @@ export default function DashboardOrchestrator() {
     if (navigator.onLine) await syncProgresoOffline();
     setCurrentView('DONE'); 
   };
+  const handleLogout = async () => {
+    // 1. Destruir sesión en el servidor
+    await supabase.auth.signOut();
+    // 2. Destruir placa de identidad local
+    localStorage.removeItem('offline_id_clase');
+    // 3. Purgar la bóveda L2 (Dexie) para no mezclar datos de clases
+    await Promise.all([
+      db.club_clase.clear(),
+      db.ninos.clear(),
+      db.plan_ejecucion.clear(),
+      db.registro_progreso.clear()
+    ]);
+    // 4. Expulsar al Login
+    router.push('/login');
+  };
 
-  // Pantalla de carga mientras el motor de Dexie arranca (Evita flasheos de UI)
-  if (clasesDB === undefined) {
+  // Pantallas de Carga de Seguridad
+  if (isAuthLoading) {
+    return <div className="flex h-screen w-full items-center justify-center text-slate-500 font-mono text-sm">Verificando Credenciales Criptográficas...</div>;
+  }
+
+  if (clasesDB === undefined && consejeroIdClase) {
     return <div className="flex h-screen w-full items-center justify-center text-slate-500 font-mono text-sm">Inicializando Motor Local...</div>;
   }
 
@@ -73,24 +137,16 @@ export default function DashboardOrchestrator() {
       } as React.CSSProperties}
     >
       <Navbar nombreClase={activeTheme.nombre} />
-
-      {/* HEADER DE PRUEBAS MULTI-TENANT */}
-      <div className="bg-slate-900 text-white p-2 flex justify-between items-center text-xs z-40 relative">
-        <span className="font-mono text-slate-400">Contexto Local (Dexie):</span>
-        <select 
-          className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-white outline-none disabled:opacity-50"
-          value={activeTheme.id_clase}
-          onChange={(e) => setActiveThemeId(e.target.value)}
-          disabled={clasesDB.length === 0}
+      
+      {/* Botón de Logout Táctico */}
+      <div className="px-4 pt-2 flex justify-end">
+        <button 
+          onClick={handleLogout}
+          className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1"
         >
-          {clasesDB.length === 0 ? (
-            <option value={FALLBACK_THEME.id_clase}>Sin Datos</option>
-          ) : (
-            clasesDB.map(tema => (
-              <option key={tema.id_clase} value={tema.id_clase}>{tema.nombre}</option>
-            ))
-          )}
-        </select>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+          Cerrar Sesión
+        </button>
       </div>
 
       {/* CONTENEDOR DE LA APLICACIÓN */}
@@ -99,30 +155,40 @@ export default function DashboardOrchestrator() {
           <>
             <div className="flex gap-2 mb-4">
               <button 
-                onClick={() => prefetchData('359ede06-9c4e-4c89-aaa3-7d81ee99271a')} 
-                className="flex-1 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 bg-slate-100 rounded-lg transition-colors text-center"
+                // AHORA USA EL ID REAL DEL CONSEJERO, NO EL QUEMADO
+                onClick={() => prefetchData(consejeroIdClase)} 
+                className="flex-1 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 bg-slate-100 rounded-lg transition-colors text-center shadow-sm active:scale-95"
               >
                 ⬇️ Fetch Datos (Sábado)
               </button>
               <button 
                 onClick={() => setCurrentView('PLANNER')} 
-                className="flex-1 py-2 text-xs font-bold text-white rounded-lg transition-colors text-center shadow-sm"
+                className="flex-1 py-2 text-xs font-bold text-white rounded-lg transition-colors text-center shadow-sm active:scale-95"
                 style={{ backgroundColor: 'var(--color-primario)' }}
               >
                 📅 Planificador Anual
               </button>
             </div>
-            <PreFlightCheck nombreClase={activeTheme.nombre} onStartPipeline={handleStartPipeline} />
+            
+            {/* Si aún no ha descargado datos, avisarle elegantemente */}
+            {activeTheme.id_clase === '' ? (
+               <div className="flex-grow flex flex-col items-center justify-center text-center p-6 bg-white rounded-3xl shadow-sm border border-slate-100">
+                 <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 text-2xl">📡</div>
+                 <h3 className="font-bold text-slate-800 mb-2">Bóveda Local Vacía</h3>
+                 <p className="text-sm text-slate-500">Presiona "Fetch Datos" para descargar el padrón de tus niños y tu planificación de la semana.</p>
+               </div>
+            ) : (
+              <PreFlightCheck nombreClase={activeTheme.nombre} onStartPipeline={handleStartPipeline} />
+            )}
           </>
         )}
 
-        {/* AQUÍ VA EL CALENDARIO, DENTRO DEL CONTENEDOR */}
         {currentView === 'PLANNER' && (
-          <CalendarPlanner idClase={activeTheme.id_clase} onBack={() => setCurrentView('PREFLIGHT')}/>
+          <CalendarPlanner idClase={consejeroIdClase} onBack={() => setCurrentView('PREFLIGHT')}/>
         )}
         
         {currentView === 'EXECUTION' && (
-          <ExecutionHUD idClase={activeTheme.id_clase} onFinish={handleFinishPipeline} />
+          <ExecutionHUD idClase={consejeroIdClase} onFinish={handleFinishPipeline} />
         )}
         
         {currentView === 'POSTFLIGHT' && (
@@ -143,7 +209,7 @@ export default function DashboardOrchestrator() {
               className="mt-12 text-sm font-bold transition-colors py-2 px-4 rounded-lg hover:bg-black/5"
               style={{ color: 'var(--color-primario)' }}
             >
-              Volver al inicio (Modo Pruebas)
+              Volver al inicio
             </button>
           </div>
         )}
