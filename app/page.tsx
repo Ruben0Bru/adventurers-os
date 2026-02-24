@@ -121,7 +121,9 @@ export default function DashboardOrchestrator() {
           <CalendarPlanner idClase={activeTheme.id_clase} onBack={() => setCurrentView('PREFLIGHT')}/>
         )}
         
-        {currentView === 'EXECUTION' && <ExecutionHUD onFinish={handleFinishPipeline} />}
+        {currentView === 'EXECUTION' && (
+          <ExecutionHUD idClase={activeTheme.id_clase} onFinish={handleFinishPipeline} />
+        )}
         
         {currentView === 'POSTFLIGHT' && (
           <PostFlightCheck asistentes={presentes} ausentes={ausentes} onSyncAndClose={handleSyncAndClose} />
