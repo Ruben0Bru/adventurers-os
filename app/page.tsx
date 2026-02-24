@@ -92,7 +92,7 @@ export default function DashboardOrchestrator() {
           console.log('[Identidad] Usando placa de identidad local (Dexie L1).');
           setConsejeroIdClase(offlineId);
         } else {
-          alert('Falla crítica: Sin red y sin caché local. Inicia sesión con internet la primera vez.');
+          alert('¡Ups!. Necesitas conexión a internet para iniciar sesión la primera vez.');
           router.push('/login');
         }
 
@@ -146,11 +146,14 @@ export default function DashboardOrchestrator() {
 
   // Pantallas de Carga de Seguridad
   if (isAuthLoading) {
-    return <div className="flex h-screen w-full items-center justify-center text-slate-500 font-mono text-sm">Verificando Credenciales Criptográficas...</div>;
+    return <div className="flex h-screen w-full items-center justify-center text-slate-500 font-medium text-sm gap-2">
+      <svg className="animate-spin h-5 w-5 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+      Iniciando sesión...
+    </div>;
   }
 
   if (clasesDB === undefined && consejeroIdClase) {
-    return <div className="flex h-screen w-full items-center justify-center text-slate-500 font-mono text-sm">Inicializando Motor Local...</div>;
+    return <div className="flex h-screen w-full items-center justify-center text-slate-500 font-medium text-sm">Preparando tu espacio de trabajo... 🏕️</div>;
   }
 
   return (
@@ -189,32 +192,42 @@ export default function DashboardOrchestrator() {
           <>
             <div className="flex gap-2 mb-4">
               <button 
-                onClick={() => isOnline ? prefetchData(consejeroIdClase) : alert("Necesitas conexión a internet para descargar los datos de tu clase.")} 
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all text-center shadow-sm ${
+                onClick={() => isOnline ? prefetchData(consejeroIdClase) : alert("Conéctate a internet para descargar la clase.")} 
+                className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all text-center shadow-sm flex items-center justify-center gap-2 ${
                   isOnline 
-                    ? 'text-slate-600 hover:text-slate-900 bg-slate-100 active:scale-95 hover:bg-slate-200' 
-                    : 'text-slate-400 bg-slate-50 opacity-60 cursor-not-allowed'
+                    ? 'text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 active:scale-95' 
+                    : 'text-slate-400 bg-slate-50 opacity-60 cursor-not-allowed border border-slate-100'
                 }`}
               >
-                {isOnline ? '⬇️ Fetch Datos (Sábado)' : '⛔ Fetch Deshabilitado'}
+                {isOnline ? (
+                  <><svg className="w-5 h-5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg> Descargar Clase</>
+                ) : (
+                  <><svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243-2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414"></path></svg> Sin Conexión</>
+                )}
               </button>
+              
               <button 
-                onClick={() => isOnline ? setCurrentView('PLANNER') : alert("La planeación requiere conexión a internet.")} 
-                className={`flex-1 py-2 text-xs font-bold text-white rounded-lg transition-all text-center shadow-sm ${
+                onClick={() => isOnline ? setCurrentView('PLANNER') : alert("La planificación requiere conexión a internet.")} 
+                className={`flex-1 py-3 text-sm font-bold text-white rounded-xl transition-all text-center shadow-sm flex items-center justify-center gap-2 ${
                   isOnline ? 'active:scale-95 hover:brightness-110' : 'opacity-60 cursor-not-allowed'
                 }`}
                 style={{ backgroundColor: 'var(--color-primario)' }}
               >
-                📅 Planificador Anual
+                <svg className="w-5 h-5 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                Planificar
               </button>
             </div>
             
             {/* Si aún no ha descargado datos, avisarle elegantemente */}
             {activeTheme.id_clase === '' ? (
-               <div className="flex-grow flex flex-col items-center justify-center text-center p-6 bg-white rounded-3xl shadow-sm border border-slate-100">
-                 <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 text-2xl">📡</div>
-                 <h3 className="font-bold text-slate-800 mb-2">Bóveda Local Vacía</h3>
-                 <p className="text-sm text-slate-500">Presiona "Fetch Datos" para descargar el padrón de tus niños y tu planificación de la semana.</p>
+               <div className="flex-grow flex flex-col items-center justify-center text-center p-8 bg-white/50 backdrop-blur-sm rounded-3xl border border-slate-100/50 mt-2">
+                 <div className="w-20 h-20 bg-sky-50 rounded-full flex items-center justify-center mb-5 text-4xl shadow-inner border border-sky-100">
+                   ☁️
+                 </div>
+                 <h3 className="font-black text-slate-800 mb-2 text-lg tracking-tight">Aún no hay datos para hoy</h3>
+                 <p className="text-sm text-slate-500 font-medium leading-relaxed max-w-[250px]">
+                   Toca <strong className="text-slate-700">Descargar Clase</strong> para guardar la asistencia y las actividades de esta semana en tu teléfono.
+                 </p>
                </div>
             ) : (
               <PreFlightCheck nombreClase={activeTheme.nombre} onStartPipeline={handleStartPipeline} />
