@@ -12,6 +12,7 @@ import PostFlightCheck from '@/components/PostFlightCheck';
 import { syncProgresoOffline, prefetchData } from '@/lib/syncService';
 import Navbar from '@/components/NavBar';
 import CalendarPlanner from '@/components/CalendarPlanner';
+import InstallPrompt from '@/components/InstallPrompt';
 
 type ViewState = 'PREFLIGHT' | 'EXECUTION' | 'POSTFLIGHT' | 'DONE' | 'PLANNER';
 
@@ -266,6 +267,7 @@ export default function DashboardOrchestrator() {
           </div>
         )}
       </div>
+      <InstallPrompt />
     </div>
   );
 }
