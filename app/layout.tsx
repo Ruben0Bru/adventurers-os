@@ -41,8 +41,8 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="bg-slate-50 text-slate-900 antialiased touch-manipulation min-h-[100dvh]">
-        <main className="pt-20 pb-6 px-4 max-w-md mx-auto h-full min-h-[100dvh] flex flex-col bg-slate-50 shadow-2xl overflow-x-hidden">
+      <body className="bg-slate-50 text-slate-900 antialiased touch-manipulation min-h-[100dvh] w-full flex flex-col m-0 p-0">
+        <main className="w-full flex-grow min-h-[100dvh] flex flex-col overflow-x-hidden">
           {children}
         </main>
       </body>
