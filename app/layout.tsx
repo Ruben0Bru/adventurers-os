@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f172a", // Cambiamos a slate-900 para que la barra de arriba coincida con tu Navbar
+  themeColor: "#f8fafc", // Cambiamos a slate-900 para que la barra de arriba coincida con tu Navbar
   width: "device-width",
   initialScale: 1,
   maximumScale: 1, 

@@ -112,8 +112,23 @@ export default function DashboardOrchestrator() {
 
   // 3. ENLACE DE CONTEXTO VISUAL
   // Buscamos el tema de la clase basándonos ESTRICTAMENTE en la identidad del consejero
+// 3. ENLACE DE CONTEXTO VISUAL
   const activeTheme = clasesDB?.find(c => c.id_clase === consejeroIdClase) || FALLBACK_THEME;
 
+  // 4. SECUESTRO DINÁMICO DEL SISTEMA OPERATIVO (Theme Color)
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      let metaThemeColor = document.querySelector('meta[name="theme-color"]');
+      if (metaThemeColor) {
+        metaThemeColor.setAttribute('content', activeTheme.color_fondo_hex);
+      } else {
+        metaThemeColor = document.createElement('meta');
+        metaThemeColor.setAttribute('name', 'theme-color');
+        metaThemeColor.setAttribute('content', activeTheme.color_fondo_hex);
+        document.head.appendChild(metaThemeColor);
+      }
+    }
+  }, [activeTheme.color_fondo_hex]);
   const handleStartPipeline = (datosPreFlight: any[]) => {
     setPresentes(datosPreFlight.filter(n => n.presente));
     setAusentes(datosPreFlight.filter(n => !n.presente));
