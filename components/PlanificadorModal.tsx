@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { db } from '@/lib/db';
 
 type CatalogoRequisito = {
   id_requisito: string;
@@ -13,72 +14,111 @@ type CatalogoRequisito = {
 export default function PlanificadorModal({ 
   isOpen, 
   fecha, 
-  idClase, 
+  idClase,
+  existingPlan,
   onClose 
 }: { 
   isOpen: boolean; 
   fecha: Date | null; 
   idClase: string; 
+  existingPlan?: any;
   onClose: () => void;
 }) {
   const [catalogo, setCatalogo] = useState<CatalogoRequisito[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Estados del Formulario (Basados en nuestra tabla SQL plan_ejecucion)
   const [idRequisito, setIdRequisito] = useState('');
   const [responsable, setResponsable] = useState('Maestro Titular');
   const [materiales, setMateriales] = useState('');
   const [fase3, setFase3] = useState('');
   const [fase4, setFase4] = useState('');
 
-  // Cargar el catálogo de esta clase desde Supabase cuando se abre el modal
   useEffect(() => {
     if (isOpen && idClase) {
       const fetchCatalogo = async () => {
-        const { data } = await supabase
-          .from('catalogo_requisito')
-          .select('id_requisito, eje_curricular, titulo')
-          .eq('id_clase', idClase);
-        
+        const { data } = await supabase.from('catalogo_requisito').select('id_requisito, eje_curricular, titulo').eq('id_clase', idClase);
         if (data) setCatalogo(data);
       };
       fetchCatalogo();
     }
   }, [isOpen, idClase]);
 
+  useEffect(() => {
+    if (isOpen && existingPlan) {
+      setIdRequisito(existingPlan.id_requisito || '');
+      setMateriales(existingPlan.materiales_requeridos ? existingPlan.materiales_requeridos.join(', ') : '');
+      setFase3(existingPlan.hud_fase3_instruccion || '');
+      setFase4(existingPlan.hud_fase4_instruccion || '');
+    } else if (isOpen && !existingPlan) {
+      setIdRequisito('');
+      setMateriales('');
+      setFase3('');
+      setFase4('');
+    }
+  }, [isOpen, existingPlan]);
+
   if (!isOpen || !fecha) return null;
 
   const handleGuardar = async () => {
     setLoading(true);
+    
+    // Extracción robusta de fecha local
+    const tzOffset = fecha.getTimezoneOffset() * 60000;
+    const fechaStr = (new Date(fecha.getTime() - tzOffset)).toISOString().split('T')[0];
+
     try {
-      // 1. Crear la Sesión en el Calendario
-      const { data: sesionData, error: sesionError } = await supabase
-        .from('sesion_calendario')
-        .insert([{
-          id_clase: idClase,
-          fecha_programada: fecha.toISOString().split('T')[0], // Formato YYYY-MM-DD
-          tipo_sesion: 'Reunión Regular'
-        }])
-        .select()
-        .single();
+      let planIdToSave = '';
 
-      if (sesionError) throw sesionError;
+      if (existingPlan) {
+        planIdToSave = existingPlan.id_plan;
+        const { error: updateError } = await supabase
+          .from('plan_ejecucion')
+          .update({
+            id_requisito: idRequisito || null,
+            materiales_requeridos: materiales.split(',').map(m => m.trim()).filter(Boolean),
+            hud_fase3_instruccion: fase3,
+            hud_fase4_instruccion: fase4
+          })
+          .eq('id_plan', existingPlan.id_plan);
 
-      // 2. Crear el Plan de Ejecución (El Payload del maestro)
-      const { error: planError } = await supabase
-        .from('plan_ejecucion')
-        .insert([{
-          id_sesion: sesionData.id_sesion,
-          id_requisito: idRequisito || null,
-          responsable,
-          materiales_requeridos: materiales.split(',').map(m => m.trim()), // Convierte string a Array
-          hud_fase3_instruccion: fase3,
-          hud_fase4_instruccion: fase4
-        }]);
+        if (updateError) throw updateError;
 
-      if (planError) throw planError;
+      } else {
+        const { data: sesionData, error: sesionError } = await supabase
+          .from('sesion_calendario')
+          .insert([{ id_clase: idClase, fecha_programada: fechaStr, tipo_sesion: 'Reunión Regular' }])
+          .select().single();
 
-      alert('¡Clase planeada exitosamente!');
+        if (sesionError) throw sesionError;
+
+        const { data: planData, error: planError } = await supabase
+          .from('plan_ejecucion')
+          .insert([{
+            id_sesion: sesionData.id_sesion,
+            id_requisito: idRequisito || null,
+            responsable,
+            materiales_requeridos: materiales.split(',').map(m => m.trim()).filter(Boolean),
+            hud_fase3_instruccion: fase3,
+            hud_fase4_instruccion: fase4
+          }])
+          .select().single();
+
+        if (planError) throw planError;
+        planIdToSave = planData.id_plan;
+      }
+
+      const tituloReq = catalogo.find(r => r.id_requisito === idRequisito)?.titulo;
+      
+      await db.plan_ejecucion.put({
+        id_plan: planIdToSave,
+        id_clase: idClase,
+        fecha_programada: fechaStr,
+        titulo_requisito: tituloReq,
+        hud_fase3_instruccion: fase3,
+        hud_fase4_instruccion: fase4,
+        materiales_requeridos: materiales.split(',').map(m => m.trim()).filter(Boolean)
+      });
+
       onClose();
     } catch (error: any) {
       alert('Error guardando el plan: ' + error.message);
@@ -93,7 +133,7 @@ export default function PlanificadorModal({
         
         <div className="p-5 text-white flex justify-between items-center" style={{ backgroundColor: 'var(--color-primario)' }}>
           <div>
-            <h3 className="font-black text-lg">Plan de Clase</h3>
+            <h3 className="font-black text-lg">{existingPlan ? 'Editar Plan' : 'Nuevo Plan'}</h3>
             <p className="text-sm opacity-90">{fecha.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
           </div>
           <button onClick={onClose} className="p-2 bg-black/10 rounded-full hover:bg-black/20">
